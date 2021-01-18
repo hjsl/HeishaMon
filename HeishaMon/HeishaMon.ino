@@ -11,6 +11,8 @@
 
 #include <ArduinoJson.h>
 
+#include <ModbusIP_ESP8266.h>
+
 #include "webfunctions.h"
 #include "decode.h"
 #include "commands.h"
@@ -29,6 +31,8 @@
 
 ESP8266WebServer httpServer(80);
 ESP8266HTTPUpdateServer httpUpdater;
+
+ModbusIP mb;
 
 settingsStruct heishamonSettings;
 
@@ -191,7 +195,7 @@ bool readSerial()
       sprintf(log_msg, "Total reads : %lu and total good reads : %lu (%.2f %%)", totalreads, goodreads, readpercentage ); log_message(log_msg);
       if (data_length == 203) { //for now only return true for this datagram because we can not decode the shorter datagram yet
         data_length = 0;
-        decode_heatpump_data(data, actData, mqtt_client, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
+        decode_heatpump_data(data, actData, mqtt_client, mb, log_message, heishamonSettings.mqtt_topic_base, heishamonSettings.updateAllTime);
         return true;
       }
       else if (data_length == 20 ) { //optional pcb acknowledge answer
@@ -408,6 +412,15 @@ void setupMqtt() {
   mqtt_reconnect();
 }
 
+const int IREG_TOP8 = 8;
+
+void setupModbus() {
+  mb.server();
+  for (int i=0; i<NUMBER_OF_TOPICS; i++) {
+    mb.addIreg(i);
+  }
+}
+
 void setup() {
   setupSerial();
   setupWifi(drd, &heishamonSettings);
@@ -416,6 +429,7 @@ void setup() {
   setupOTA();
   setupMqtt();
   setupHttp();
+  setupModbus();
   if (heishamonSettings.use_1wire) initDallasSensors(log_message, heishamonSettings.updataAllDallasTime, heishamonSettings.waitDallasTime);
   if (heishamonSettings.use_s0) initS0Sensors(heishamonSettings.s0Settings, mqtt_client, heishamonSettings.mqtt_topic_base);
   switchSerial();
@@ -467,6 +481,8 @@ void loop() {
   MDNS.update();
 
   mqtt_client.loop();
+
+  mb.task();
 
   read_panasonic_data();
 

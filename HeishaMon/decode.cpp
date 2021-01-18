@@ -155,7 +155,7 @@ String getErrorInfo(char* data) { // TOP44 //
 }
 
 // Decode ////////////////////////////////////////////////////////////////////////////
-void decode_heatpump_data(char* data, String actData[], PubSubClient &mqtt_client, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime) {
+void decode_heatpump_data(char* data, String actData[], PubSubClient &mqtt_client, ModbusIP &mb, void (*log_message)(char*), char* mqtt_topic_base, unsigned int updateAllTime) {
   char log_msg[256];
   char mqtt_topic[256];
   bool updatenow = false;
@@ -171,18 +171,23 @@ void decode_heatpump_data(char* data, String actData[], PubSubClient &mqtt_clien
     switch (Topic_Number) { //switch on topic numbers, some have special needs
       case 1:
         Topic_Value = getPumpFlow(data);
+        mb.Ireg(Topic_Number, Topic_Value.toFloat() * 100);
         break;
       case 11:
         Topic_Value = String(word(data[183], data[182]) - 1);
+        mb.Ireg(Topic_Number, Topic_Value.toInt());
         break;
       case 12:
         Topic_Value = String(word(data[180], data[179]) - 1);
+        mb.Ireg(Topic_Number, Topic_Value.toInt());
         break;
       case 90:
         Topic_Value = String(word(data[186], data[185]) - 1);
+        mb.Ireg(Topic_Number, Topic_Value.toInt());
         break;
       case 91:
         Topic_Value = String(word(data[189], data[188]) - 1);
+        mb.Ireg(Topic_Number, Topic_Value.toInt());
         break;
       case 44:
         Topic_Value = getErrorInfo(data);
@@ -190,6 +195,7 @@ void decode_heatpump_data(char* data, String actData[], PubSubClient &mqtt_clien
       default:
         Input_Byte = data[topicBytes[Topic_Number]];
         Topic_Value = topicFunctions[Topic_Number](Input_Byte);
+        mb.Ireg(Topic_Number, Topic_Value.toInt());
         break;
     }
     if ((updatenow) || ( actData[Topic_Number] != Topic_Value )) {
